@@ -24,7 +24,7 @@
 #define WARPING_ENGINE_DEVICE_CNT         1u
 
 /* device tree node */
-#define WARPING_ENGINE_OF_COMPATIBLE        "tes,tes_warpingengine-1.0"
+#define WARPING_ENGINE_OF_COMPATIBLE        "tes,warp-1.0"
 
 /* Register access macros */
 #define WARPING_ENGINE_IO_WREG(addr,data)       iowrite32(data,addr)
