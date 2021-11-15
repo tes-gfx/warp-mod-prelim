@@ -35,7 +35,10 @@ struct warping_engine_dev
 {
   unsigned long base_phys;
   unsigned long span;
+  dma_addr_t mem_base_phys; /* Vidmem base physical addr    */
+  size_t mem_span;          /* Vidmem memory span           */
   void *base_virt;
+  void *mem_base_virt;      /* Vidmem base virtual addr     */
   unsigned int irq_no;
   unsigned int irq_stat;
   spinlock_t irq_slck;

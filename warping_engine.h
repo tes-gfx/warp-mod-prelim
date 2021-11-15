@@ -133,6 +133,24 @@ typedef struct warping_engine_status_tag
 
  */
  
+/* IOCTL Commands */
+#define WARPING_ENGINE_IOCTL_TYPE 'B'
+#define WARPING_ENGINE_IOCTL_REG_PREFIX     (0x80)
+#define WARPING_ENGINE_IOCTL_NR_SETTINGS    (0x01)
+#define WARPING_ENGINE_IOCTL_MAKE_REG(reg)  (reg|WARPING_ENGINE_IOCTL_REG_PREFIX)
+#define WARPING_ENGINE_IOCTL_GET_REG(nr)    (nr&(~WARPING_ENGINE_IOCTL_REG_PREFIX))
+#define WARPING_ENGINE_IOCTL_WREG(reg)      (_IOW(WARPING_ENGINE_IOCTL_TYPE,WARPING_ENGINE_IOCTL_MAKE_REG(reg),unsigned long))
+#define WARPING_ENGINE_IOCTL_RREG(reg)      (_IOR(WARPING_ENGINE_IOCTL_TYPE,WARPING_ENGINE_IOCTL_MAKE_REG(reg),unsigned long))
+#define WARPING_ENGINE_IOCTL_GET_SETTINGS   (_IOR(WARPING_ENGINE_IOCTL_TYPE,WARPING_ENGINE_IOCTL_NR_SETTINGS,warping_engine_settings))
+
+/* warping_engine physical memory layout */
+typedef struct
+{
+  unsigned long base_phys;      /* base start address               */
+  unsigned long span;           /* last base offset                 */
+  unsigned long mem_base_phys;  /* video memory start address       */
+  unsigned long mem_span;       /* last video memory cell offset    */
+} warping_engine_settings;
 typedef struct warping_engine_config_tag
 {
   warping_engine_uint32 m_revision_major:8;

@@ -28,6 +28,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/mm.h>
+#include <linux/dma-mapping.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include "warping_engine_module.h"
@@ -49,25 +50,74 @@ static int warping_engine_open(struct inode *ip, struct file *fp)
   return 0;
 }
 
+static int warping_engine_mmap(struct file *fp, struct vm_area_struct *vma)
+{
+  struct warping_engine_dev *dev = fp->private_data;
+  int ret;
+
+  vma->vm_flags &= ~VM_PFNMAP;
+  vma->vm_pgoff = 0;
+
+  ret = dma_mmap_writecombine(dev->device, vma,
+            dev->mem_base_virt, dev->mem_base_phys,
+            vma->vm_end - vma->vm_start);
+
+  return ret;
+}
+
 static long warping_engine_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 {
   struct warping_engine_dev *dev = fp->private_data;
+  warping_engine_settings wpset;
   unsigned int cmd_nr;
+
+  if (_IOC_TYPE(cmd) != WARPING_ENGINE_IOCTL_TYPE)
+    return -ENOTTY;
 
   cmd_nr = _IOC_NR(cmd);
   if (_IOC_DIR(cmd) == _IOC_WRITE)
   {
-    /* direct register write: Register value in argument */
-    WARPING_ENGINE_IO_WREG(WARPING_ENGINE_IO_RADDR(dev->base_virt, cmd_nr), arg);
-    return 0;
+    if (cmd_nr & WARPING_ENGINE_IOCTL_REG_PREFIX)
+    {
+      /* direct register write: Register value in argument */
+    WARPING_ENGINE_IO_WREG( WARPING_ENGINE_IO_RADDR(dev->base_virt,
+                            WARPING_ENGINE_IOCTL_GET_REG(cmd_nr)),
+                            arg);
+      return 0;
+    }
   }
   else if (_IOC_DIR(cmd) == _IOC_READ)
   {
-    /* direct register read: Argument is a pointer */
-    if(!put_user(WARPING_ENGINE_IO_RREG(WARPING_ENGINE_IO_RADDR(dev->base_virt,
-              cmd_nr)), (unsigned long*) arg))
-      return -EFAULT;
-    return 0;
+    if (cmd_nr & WARPING_ENGINE_IOCTL_REG_PREFIX)
+    {  /* direct register read: Argument is a pointer */
+      if(!put_user(WARPING_ENGINE_IO_RREG(WARPING_ENGINE_IO_RADDR(dev->base_virt, 
+                                          WARPING_ENGINE_IOCTL_GET_REG(cmd_nr))), 
+                                          (unsigned long*) arg))
+        return -EFAULT;
+      return 0;
+    }
+
+    switch(cmd_nr)
+    {
+      case WARPING_ENGINE_IOCTL_NR_SETTINGS:
+        wpset.base_phys = dev->base_phys;
+        wpset.span = dev->span;
+        wpset.mem_base_phys = dev->mem_base_phys;
+        wpset.mem_span = dev->mem_span;
+      
+        if(copy_to_user(  (void*) arg, 
+                          (void*) &wpset,
+                          sizeof(warping_engine_settings))  ) 
+        {
+          dev_err(fp->private_data,
+            "error while copying settings to user space\n");
+          return -EFAULT;
+        }
+        return 0;
+
+      default:
+        return -EINVAL;
+    }
   }
   return -EINVAL;
 }
@@ -97,6 +147,7 @@ ssize_t warping_engine_read(struct file *filp, char __user *buff, size_t count, 
 static struct file_operations warping_engine_fops = {
   .owner = THIS_MODULE,
   .open = warping_engine_open,
+  .mmap = warping_engine_mmap,
   .unlocked_ioctl = warping_engine_ioctl,
   .read = warping_engine_read,
 };
@@ -191,6 +242,8 @@ static void warping_engine_log_params(struct warping_engine_dev *dev)
 {
   dev_info(dev->device, "Base address:\t0x%08lx - 0x%08lx\n",
       dev->base_phys, dev->base_phys + dev->span);
+  dev_info(dev->device, "Video RAM:\t%pad\n",
+      &dev->mem_base_phys);
   dev_info(dev->device, "IRQ:\t%d\n", dev->irq_no);
 }
 
@@ -258,6 +311,16 @@ static int warping_engine_probe(struct platform_device *pdev)
         WARPING_ENGINE_H_W_REVISION_REG));
   dev_info(&pdev->dev, "Found WARPING_ENGINE rev. 0x%08X\n", result);
 
+  /* Allocate Vidmem */
+  warping_engine->mem_span = 16*1024*1024;
+  warping_engine->mem_base_virt = dma_alloc_writecombine(warping_engine->device, warping_engine->mem_span, &warping_engine->mem_base_phys,  GFP_KERNEL | __GFP_NOWARN);
+  if(!warping_engine->mem_base_virt) {
+    dev_err(&pdev->dev, "allocating video memory failed\n");
+    goto IO_VID_FAILED;
+  }
+
+  warping_engine_log_params(warping_engine);
+
   result = warping_engine_setup_device(warping_engine);
   if(result)
   {
@@ -277,6 +340,8 @@ static int warping_engine_probe(struct platform_device *pdev)
 IRQ_FAILED:
   warping_engine_shutdown_device(warping_engine);
 DEV_FAILED:
+  dma_free_writecombine(warping_engine->device, warping_engine->mem_span, warping_engine->mem_base_virt, warping_engine->mem_base_phys);
+IO_VID_FAILED:
   iounmap(warping_engine->base_virt);
 IO_FAILED:
   release_mem_region(warping_engine->base_phys, warping_engine->span);
@@ -288,8 +353,10 @@ static int warping_engine_remove(struct platform_device *pdev)
 {
   struct warping_engine_dev *warping_engine = platform_get_drvdata(pdev);
   unregister_irq(warping_engine);
+  iounmap(warping_engine->mem_base_virt);
   iounmap(warping_engine->base_virt);
   release_mem_region(warping_engine->base_phys, warping_engine->span);
+  release_mem_region(warping_engine->mem_base_phys, warping_engine->mem_span);
   warping_engine_shutdown_device(warping_engine);
   devm_kfree(&pdev->dev, warping_engine);
   return 0;
