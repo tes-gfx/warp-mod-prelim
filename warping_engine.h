@@ -199,7 +199,7 @@ void warping_engine_setOutsideColor(warping_engine_handle a_handle, warping_engi
 void warping_engine_setOutputImageAddress(warping_engine_handle a_handle, warping_engine_uint32 a_address);
 void warping_engine_setOutputImageSize(warping_engine_handle a_handle, warping_engine_uint16 a_width, warping_engine_uint16 a_height);
 void warping_engine_setOutputImagePitch(warping_engine_handle a_handle, warping_engine_uint16 a_pitch);
-void warping_engine_setStripeWidth(warping_engine_handle a_handle, warping_engine_uint8 a_stripe_width);
+void warping_engine_setStripeWidth(warping_engine_handle a_handle, warping_engine_uint16 a_stripe_width);
 void warping_engine_resetPipeline(warping_engine_handle a_handle);
 
 void warping_engine_enablePerformanceCounters(warping_engine_handle a_handle, warping_engine_uint32 a_enable_mask);
