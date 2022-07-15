@@ -58,7 +58,7 @@ static int warping_engine_mmap(struct file *fp, struct vm_area_struct *vma)
   vma->vm_flags &= ~VM_PFNMAP;
   vma->vm_pgoff = 0;
 
-  ret = dma_mmap_writecombine(dev->device, vma,
+  ret = dma_mmap_wc(dev->device, vma,
             dev->mem_base_virt, dev->mem_base_phys,
             vma->vm_end - vma->vm_start);
 
@@ -313,7 +313,7 @@ static int warping_engine_probe(struct platform_device *pdev)
 
   /* Allocate Vidmem */
   warping_engine->mem_span = 16*1024*1024;
-  warping_engine->mem_base_virt = dma_alloc_writecombine(warping_engine->device, warping_engine->mem_span, &warping_engine->mem_base_phys,  GFP_KERNEL | __GFP_NOWARN);
+  warping_engine->mem_base_virt = dma_alloc_wc(warping_engine->device, warping_engine->mem_span, &warping_engine->mem_base_phys,  GFP_KERNEL | __GFP_NOWARN);
   if(!warping_engine->mem_base_virt) {
     dev_err(&pdev->dev, "allocating video memory failed\n");
     goto IO_VID_FAILED;
@@ -340,7 +340,7 @@ static int warping_engine_probe(struct platform_device *pdev)
 IRQ_FAILED:
   warping_engine_shutdown_device(warping_engine);
 DEV_FAILED:
-  dma_free_writecombine(warping_engine->device, warping_engine->mem_span, warping_engine->mem_base_virt, warping_engine->mem_base_phys);
+  dma_free_wc(warping_engine->device, warping_engine->mem_span, warping_engine->mem_base_virt, warping_engine->mem_base_phys);
 IO_VID_FAILED:
   iounmap(warping_engine->base_virt);
 IO_FAILED:
