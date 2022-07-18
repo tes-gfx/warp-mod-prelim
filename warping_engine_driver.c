@@ -334,6 +334,7 @@ static int warping_engine_probe(struct platform_device *pdev)
     dev_err(&pdev->dev, "can't register irq %d\n", warping_engine->irq_no);
     goto IRQ_FAILED;
   }
+  dev_warn(&pdev->dev, "This driver is PRELIMINARY. Do NOT use in production environment!\n");
 
   return 0;
 
