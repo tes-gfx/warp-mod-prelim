@@ -288,8 +288,6 @@ static int warping_engine_probe(struct platform_device *pdev)
   warping_engine->span = rsrc.end - rsrc.start;
   warping_engine->irq_no = of_irq_to_resource(np, 0, &rsrc);
 
-  warping_engine_log_params(warping_engine);
-
   spin_lock_init(&warping_engine->irq_slck);
   init_waitqueue_head(&warping_engine->irq_waitq);
 
@@ -334,6 +332,7 @@ static int warping_engine_probe(struct platform_device *pdev)
     dev_err(&pdev->dev, "can't register irq %d\n", warping_engine->irq_no);
     goto IRQ_FAILED;
   }
+
   dev_warn(&pdev->dev, "This driver is PRELIMINARY. Do NOT use in production environment!\n");
 
   return 0;
